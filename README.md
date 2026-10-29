@@ -12,6 +12,7 @@ Extension Chrome (Manifest V3) qui clique automatiquement sur le bouton « Ignor
 - Fonctionne avec la navigation SPA de YouTube (pas de rechargement entre les vidéos).
 - Chaque skip est affiché dans la console avec le préfixe `[YouTube Auto Skip]`.
 - Depuis la v3, le clic est envoyé via l'API `chrome.debugger` (permission `debugger`) : YouTube ignore les clics générés par script, seuls les vrais clics souris passent. Chrome affiche brièvement la bannière « YouTube Auto Skip débogue ce navigateur » au moment du clic. Rien d'autre n'est demandé, et le service worker n'accepte que les messages venant de YouTube.
+- Avant chaque clic, le service worker vérifie lui-même, via le débogueur et dans un contexte que la page ne peut pas modifier, que l'élément sous le pointeur est bien un bouton « Ignorer » du lecteur. Sinon, le clic n'est pas envoyé.
 
 ## Installation
 
@@ -43,6 +44,6 @@ Crée `dist/youtube-auto-skip-<version>.zip` (le numéro vient de `manifest.json
 ## Limites connues
 
 - Les publicités **non ignorables** n'ont pas de bouton « Ignorer » : elles ne peuvent pas être sautées.
-- Les **sélecteurs peuvent casser** si YouTube modifie son interface ; il faudra alors mettre à jour la liste `SKIP_SELECTORS` dans `content.js`.
+- Les **sélecteurs peuvent casser** si YouTube modifie son interface ; il faudra alors mettre à jour la liste `SKIP_SELECTORS` dans `content.js` **et** dans `background.js`.
 - À chaque clic, Chrome affiche un court instant la bannière de débogage. Si vous cliquez sur « Annuler » dans cette bannière, le clic en cours est abandonné.
 - L'extension ne bloque pas les publicités : elle clique seulement sur « Ignorer » quand YouTube le propose, après le délai imposé par la pub.

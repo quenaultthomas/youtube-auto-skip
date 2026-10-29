@@ -7,6 +7,7 @@
   const LOG_PREFIX = "[YouTube Auto Skip]";
 
   // YouTube change régulièrement ses classes : on tolère plusieurs sélecteurs.
+  // background.js revérifie la cible avec les mêmes règles : modifier les deux fichiers ensemble.
   const SKIP_SELECTORS = [
     ".ytp-skip-ad-button",
     ".ytp-ad-skip-button",
