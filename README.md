@@ -13,6 +13,13 @@ Extension Chrome (Manifest V3) qui clique automatiquement sur le bouton « Ignor
 
 ## Installation
 
+Récupérer d'abord le code, de l'une de ces deux façons :
+
+- **Archive zip** (depuis les [Releases GitHub](https://github.com/quenaultthomas/youtube-auto-skip/releases)) : la décompresser dans un dossier **qui doit rester en place**, Chrome le relit à chaque démarrage.
+- **Git** : `git clone https://github.com/quenaultthomas/youtube-auto-skip.git`
+
+Puis, dans Chrome :
+
 1. Ouvrir `chrome://extensions` dans Chrome.
 2. Activer le **mode développeur** (interrupteur en haut à droite).
 3. Cliquer sur **Charger l'extension non empaquetée**.
@@ -20,6 +27,14 @@ Extension Chrome (Manifest V3) qui clique automatiquement sur le bouton « Ignor
 5. Ouvrir YouTube : les messages `[YouTube Auto Skip]` apparaissent dans la console (F12) à chaque pub ignorée.
 
 Après une modification du code, cliquer sur l'icône de rechargement de l'extension dans `chrome://extensions`, puis recharger l'onglet YouTube.
+
+## Générer l'archive à partager
+
+```sh
+./build.sh
+```
+
+Crée `dist/youtube-auto-skip-<version>.zip` (le numéro vient de `manifest.json`).
 
 ## Limites connues
 
