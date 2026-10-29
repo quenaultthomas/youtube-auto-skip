@@ -47,12 +47,45 @@
     return found;
   }
 
+  /**
+   * Simule un vrai clic souris (survol, appui, relâchement, clic) au centre du bouton.
+   * Un simple button.click() est ignoré par le bouton actuel de YouTube, qui écoute
+   * les événements pointeur/souris et non le seul « click ».
+   */
+  function pressButton(el) {
+    const rect = el.getBoundingClientRect();
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    };
+    const pointerInit = { ...init, pointerId: 1, pointerType: "mouse", isPrimary: true };
+    for (const type of ["pointerover", "mouseover", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      const event = type.startsWith("pointer")
+        ? new PointerEvent(type, pointerInit)
+        : new MouseEvent(type, init);
+      el.dispatchEvent(event);
+    }
+  }
+
+  // Dernier clic par bouton : YouTube réutilise le même élément d'une pub à l'autre,
+  // on évite donc de recliquer en boucle à chaque mutation pendant la transition.
+  const lastClick = new WeakMap();
+  const CLICK_COOLDOWN_MS = 1000;
+
   /** Cherche les boutons « Ignorer » (pub et enquête) visibles et clique dessus. */
   function trySkip() {
     const buttons = new Set([...document.querySelectorAll(SKIP_SELECTORS), ...findSurveyButtons()]);
     for (const button of buttons) {
       if (!isVisible(button) || button.disabled) continue;
-      button.click();
+      const now = Date.now();
+      if (now - (lastClick.get(button) || 0) < CLICK_COOLDOWN_MS) continue;
+      lastClick.set(button, now);
+      pressButton(button);
       console.log(`${LOG_PREFIX} Publicité ou enquête ignorée`, {
         selector: button.className || button.id,
         url: location.href,
