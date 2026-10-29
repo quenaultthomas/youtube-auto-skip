@@ -1,8 +1,12 @@
 {
   "manifest_version": 3,
   "name": "YouTube Auto Skip",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Clique automatiquement sur le bouton « Ignorer » des publicités YouTube dès qu'il apparaît.",
+  "permissions": ["debugger"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"],

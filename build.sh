@@ -8,5 +8,5 @@ out="dist/youtube-auto-skip-$version.zip"
 
 mkdir -p dist
 rm -f "$out"
-zip -q "$out" manifest.json content.js README.md
+zip -q "$out" manifest.json content.js background.js README.md
 echo "Créé : $out"
