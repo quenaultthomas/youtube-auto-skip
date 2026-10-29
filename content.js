@@ -15,6 +15,12 @@
     'button[class*="skip-ad"]',
   ].join(",");
 
+  // v2 : bouton « Ignorer l'enquête » des pubs à sondage. Pas de classe stable connue :
+  // on cherche, dans les conteneurs de pub uniquement, un bouton dont le libellé correspond.
+  const SURVEY_CONTAINERS = ".video-ads, .ytp-ad-module, .ytp-ad-survey, .ytp-ad-player-overlay";
+  const SURVEY_BUTTONS = 'button, [role="button"]';
+  const SURVEY_TEXT = /ignorer l['’]enqu[êe]te|skip survey/i;
+
   // Évite une double injection si le script est évalué deux fois.
   if (window.__ytAutoSkipInstalled) return;
   window.__ytAutoSkipInstalled = true;
@@ -29,13 +35,25 @@
     return getComputedStyle(el).visibility !== "hidden";
   }
 
-  /** Cherche les boutons « Ignorer » visibles et clique dessus. */
+  /** Boutons « Ignorer l'enquête » : détectés par leur libellé (texte ou aria-label). */
+  function findSurveyButtons() {
+    const found = [];
+    for (const container of document.querySelectorAll(SURVEY_CONTAINERS)) {
+      for (const el of container.querySelectorAll(SURVEY_BUTTONS)) {
+        const label = `${el.getAttribute("aria-label") || ""} ${el.textContent || ""}`;
+        if (SURVEY_TEXT.test(label)) found.push(el);
+      }
+    }
+    return found;
+  }
+
+  /** Cherche les boutons « Ignorer » (pub et enquête) visibles et clique dessus. */
   function trySkip() {
-    const buttons = document.querySelectorAll(SKIP_SELECTORS);
+    const buttons = new Set([...document.querySelectorAll(SKIP_SELECTORS), ...findSurveyButtons()]);
     for (const button of buttons) {
       if (!isVisible(button) || button.disabled) continue;
       button.click();
-      console.log(`${LOG_PREFIX} Publicité ignorée`, {
+      console.log(`${LOG_PREFIX} Publicité ou enquête ignorée`, {
         selector: button.className || button.id,
         url: location.href,
       });

@@ -7,6 +7,7 @@ Extension Chrome (Manifest V3) qui clique automatiquement sur le bouton « Ignor
 - S'exécute uniquement sur `https://www.youtube.com/*` et `https://m.youtube.com/*`.
 - Un `MutationObserver`, limité à une vérification par frame via `requestAnimationFrame`, surveille la page.
 - Le clic n'a lieu que si le bouton est réellement visible (`offsetParent` non nul et `visibility` différent de `hidden`).
+- Depuis la v2, clique aussi sur « Ignorer l'enquête » (pubs à sondage), repéré par son libellé (FR/EN) dans les conteneurs de pub.
 - Fonctionne avec la navigation SPA de YouTube (pas de rechargement entre les vidéos).
 - Chaque skip est affiché dans la console avec le préfixe `[YouTube Auto Skip]`.
 - Aucune permission demandée dans le manifest.
