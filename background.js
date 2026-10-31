@@ -52,7 +52,7 @@ async function isSkipButtonAt(target, x, y) {
     worldName: "youtube-auto-skip-check",
   });
   await send("DOM.getDocument", { depth: 0 });
-  const { backendNodeId } = await send("DOM.getNodeForLocation", { x, y });
+  const { backendNodeId } = await send("DOM.getNodeForLocation", { x: Math.round(x), y: Math.round(y) });
   const { object } = await send("DOM.resolveNode", { backendNodeId, executionContextId });
   const { result } = await send("Runtime.callFunctionOn", {
     objectId: object.objectId,
@@ -69,8 +69,13 @@ async function isSkipButtonAt(target, x, y) {
  * Attache le débogueur, survole le point, vérifie la cible, puis appui / relâchement, et détache.
  * Lève une erreur si la cible n'est pas un bouton « Ignorer ».
  */
-async function clickAt(tabId, x, y) {
+async function clickAt(tabId, rawX, rawY) {
   const target = { tabId };
+  // Coordonnées entières : les anciennes versions de Chrome refusent les décimales
+  // (« Failed to deserialize params.x - int32 value expected »). Toutes les commandes
+  // ci-dessous, y compris DOM.getNodeForLocation, utilisent ces valeurs arrondies.
+  const x = Math.round(rawX);
+  const y = Math.round(rawY);
   await chrome.debugger.attach(target, PROTOCOL_VERSION);
   try {
     const mouse = { x, y, button: "left", clickCount: 1 };
@@ -102,15 +107,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
   if (busyTabs.has(tabId)) {
-    sendResponse({ ok: false, error: "clic déjà en cours" });
+    // Pas une erreur : le content script réessaiera une fois ce clic terminé.
+    sendResponse({ ok: false, busy: true });
     return;
   }
 
   busyTabs.add(tabId);
-  clickAt(tabId, message.x, message.y)
-    .then(() => sendResponse({ ok: true }))
-    .catch((error) => sendResponse({ ok: false, error: String(error.message || error) }))
-    .finally(() => busyTabs.delete(tabId));
+  (async () => {
+    try {
+      await clickAt(tabId, message.x, message.y);
+      sendResponse({ ok: true });
+    } catch (error) {
+      // Débogueur impossible à attacher, commande refusée, cible incorrecte…
+      sendResponse({ ok: false, error: String((error && error.message) || error) });
+    } finally {
+      // Toujours libérer le verrou, même en cas d'échec ou si l'onglet a disparu
+      // (sendResponse peut alors lever une erreur) : la pub suivante doit pouvoir être ignorée.
+      busyTabs.delete(tabId);
+    }
+  })().catch(() => {}); // onglet fermé : la réponse ne peut plus être envoyée, rien à faire
 
   return true; // réponse asynchrone
 });

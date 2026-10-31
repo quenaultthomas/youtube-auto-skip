@@ -57,12 +57,15 @@
    * clics « de confiance » (isTrusted) passent. On demande donc au service worker
    * (background.js) d'envoyer un vrai clic souris via l'API chrome.debugger,
    * aux coordonnées du centre du bouton dans la fenêtre.
-   * Renvoie true si le clic a été envoyé.
+   * Renvoie "trusted" (vrai clic envoyé), "fallback" (clic de secours button.click()),
+   * "busy" (un clic est déjà en cours dans cet onglet) ou null (aucun clic).
    */
   async function pressButton(el) {
     const rect = el.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
+    // Coordonnées entières : les anciennes versions de Chrome refusent les décimales
+    // dans les commandes du débogueur (« int32 value expected »).
+    const x = Math.round(rect.left + rect.width / 2);
+    const y = Math.round(rect.top + rect.height / 2);
 
     // Un vrai clic atterrit sur l'élément au premier plan à ces coordonnées : si le bouton
     // est recouvert (ex. carte « Acheter maintenant »), on ne clique pas, pour ne jamais
@@ -70,29 +73,38 @@
     const hit = document.elementFromPoint(x, y);
     if (!hit || !el.contains(hit)) {
       console.log(`${LOG_PREFIX} Bouton recouvert, clic annulé par sécurité`, { recouvert_par: hit });
-      return false;
+      return null;
     }
 
     try {
       const response = await chrome.runtime.sendMessage({ type: "trusted-click", x, y });
-      if (response && response.ok) return true;
-      console.warn(`${LOG_PREFIX} Clic refusé :`, response && response.error);
+      if (response && response.ok) return "trusted";
+      // Un autre clic est en cours (ex. deux pubs d'affilée) : ce n'est pas une erreur,
+      // l'appelant réessaiera dès que le verrou sera libéré.
+      if (response && response.busy) return "busy";
+      console.warn(`${LOG_PREFIX} Clic de confiance refusé :`, response && response.error);
     } catch (error) {
       if (!chrome.runtime || !chrome.runtime.id) {
         // L'extension a été rechargée ou retirée : ce script est orphelin, on l'arrête.
         // Recharger l'onglet réinjecte la nouvelle version.
         stop();
-        return false;
+        return null;
       }
       console.warn(`${LOG_PREFIX} Impossible de contacter l'extension :`, error.message);
     }
-    return false;
+
+    // Secours : un clic simple. Les versions récentes de YouTube l'ignorent, mais il ne
+    // coûte rien et cible le bouton lui-même, jamais un élément qui le recouvrirait.
+    el.click();
+    return "fallback";
   }
 
   // Dernier clic par bouton : YouTube réutilise le même élément d'une pub à l'autre,
   // on évite donc de recliquer en boucle à chaque mutation pendant la transition.
   const lastClick = new WeakMap();
   const CLICK_COOLDOWN_MS = 1000;
+  // Délai avant de réessayer quand le service worker répond « clic déjà en cours ».
+  const BUSY_RETRY_MS = 300;
 
   /** Cherche les boutons « Ignorer » (pub et enquête) visibles et clique dessus. */
   function trySkip() {
@@ -105,9 +117,19 @@
       const now = Date.now();
       if (now - (lastClick.get(button) || 0) < CLICK_COOLDOWN_MS) continue;
       lastClick.set(button, now);
-      pressButton(button).then((clicked) => {
-        if (!clicked) return;
-        console.log(`${LOG_PREFIX} Publicité ou enquête ignorée`, {
+      pressButton(button).then((outcome) => {
+        if (outcome === "busy") {
+          // On lève le délai anti-spam de ce bouton et on revérifie peu après, pour que la
+          // seconde pub d'une série soit elle aussi ignorée.
+          lastClick.delete(button);
+          setTimeout(scheduleCheck, BUSY_RETRY_MS);
+          return;
+        }
+        if (!outcome) return;
+        const message = outcome === "trusted"
+          ? "Publicité ou enquête ignorée"
+          : "Clic de secours (button.click()) envoyé";
+        console.log(`${LOG_PREFIX} ${message}`, {
           selector: button.className || button.id,
           url: location.href,
         });
